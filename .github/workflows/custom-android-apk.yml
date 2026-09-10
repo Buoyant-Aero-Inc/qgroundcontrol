@@ -14,6 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     strategy:
       matrix:
         BuildType: [Release]
@@ -27,10 +30,10 @@ jobs:
       QT_VERSION: 6.8.3
       QT_ANDROID_ABIS: 'armeabi-v7a;arm64-v8a'
       # Self-signed keystore generated below so the APK is installable directly.
-      QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/custom_qgc.keystore
-      QT_ANDROID_KEYSTORE_ALIAS: CustomQGCKeyStore
-      QT_ANDROID_KEYSTORE_STORE_PASS: customqgc123
-      QT_ANDROID_KEYSTORE_KEY_PASS: customqgc123
+      QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/buoyant-qgc.keystore
+      QT_ANDROID_KEYSTORE_ALIAS: buoyantqgc
+      QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+      QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
 
     steps:
       - name: Checkout repo
@@ -63,15 +66,8 @@ jobs:
           abis: ${{ env.QT_ANDROID_ABIS }}
           cpm-modules: ${{ runner.temp }}/shadow_build_dir/cpm_modules
 
-      - name: Generate signing keystore
-        run: |
-          keytool -genkeypair \
-            -keystore "${{ env.QT_ANDROID_KEYSTORE_PATH }}" \
-            -alias "${{ env.QT_ANDROID_KEYSTORE_ALIAS }}" \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "${{ env.QT_ANDROID_KEYSTORE_STORE_PASS }}" \
-            -keypass "${{ env.QT_ANDROID_KEYSTORE_KEY_PASS }}" \
-            -dname "CN=CustomQGC, OU=QGC, O=QGC, L=NA, S=NA, C=US"
+      - name: Restore signing keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "${{ env.QT_ANDROID_KEYSTORE_PATH }}"
 
       - name: Configure
         working-directory: ${{ runner.temp }}/shadow_build_dir
@@ -92,7 +88,8 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p ${{ runner.temp }}/apk_out
-          cp ${{ runner.temp }}/shadow_build_dir/android-build/*.apk ${{ runner.temp }}/apk_out/
+          cp "$(ls ${{ runner.temp }}/shadow_build_dir/android-build/*.apk | head -n1)" \
+             ${{ runner.temp }}/apk_out/QGroundControl-Custom.apk
           ls -la ${{ runner.temp }}/apk_out/
 
       - name: Upload APK artifact
@@ -101,3 +98,16 @@ jobs:
           name: QGroundControl-Custom-APK
           path: ${{ runner.temp }}/apk_out/*.apk
           retention-days: 30
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "custom-build-${{ github.run_number }}" \
+            --repo "${{ github.repository }}" \
+            --title "Custom QGC build ${{ github.run_number }}" \
+            --notes "Custom QGroundControl for Buoyant Aero blimp ops (base v5.0.8).
+          Branch: ${{ github.ref_name }} @ ${{ github.sha }}" \
+            --target "${{ github.sha }}" \
+            --latest \
+            "${{ runner.temp }}/apk_out/QGroundControl-Custom.apk"
