@@ -63,17 +63,21 @@ Item {
 
         var now = Date.now()
         var heading = vehicle.heading.rawValue
+        var home = vehicle.homePosition
         var payload = {
             "lat":     vehicle.coordinate.latitude,
             "lon":     vehicle.coordinate.longitude,
             "alt":     vehicle.altitudeRelative.rawValue,
             "heading": isNaN(heading) ? 0 : heading,
             "speed":   vehicle.groundSpeed.rawValue,
+            "homeLat": home.isValid ? home.latitude : null,
+            "homeLon": home.isValid ? home.longitude : null,
+            "homeAlt": home.isValid ? home.altitude : null,
             "ts":      now
         }
 
         _put(base + "/current.json", payload, true)
-        _put(base + "/trail/" + now + ".json", { "lat": payload.lat, "lon": payload.lon, "ts": now }, false)
+        _put(base + "/trail/" + now + ".json", { "lat": payload.lat, "lon": payload.lon, "alt": payload.alt, "heading": payload.heading, "ts": now }, false)
     }
 
     function _put(url, obj, trackStatus) {
