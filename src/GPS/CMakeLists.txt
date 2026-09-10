@@ -28,7 +28,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_
 CPMAddPackage(
     NAME px4-gpsdrivers
     GITHUB_REPOSITORY PX4/PX4-GPSDrivers
-    GIT_TAG main
+    # Pinned: upstream main moved past what v5.0.8's shim supports (sensor_gnss_rf_s)
+    GIT_TAG cf1356c041cfff44ba92cd217fb60292ff4ee456
     SOURCE_SUBDIR src
 )
 
