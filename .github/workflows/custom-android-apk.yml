@@ -69,14 +69,21 @@ jobs:
       - name: Restore signing keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "${{ env.QT_ANDROID_KEYSTORE_PATH }}"
 
+      - name: Fix Qt kit permissions
+        # Qt's all_os Android archives extract without executable bits (qt-cmake, androiddeployqt, ...)
+        run: |
+          chmod -R u+x "${{ runner.temp }}/Qt/${{ env.QT_VERSION }}"/*/bin "${{ runner.temp }}/Qt/${{ env.QT_VERSION }}"/*/libexec 2>/dev/null || true
+          ls -l "${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/android_arm64_v8a/bin/qt-cmake"
+
       - name: Configure
         working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
+        # Use explicit kit paths: QT_ROOT_DIR is whatever install step ran last and is not reliable.
+        run: ${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/android_arm64_v8a/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
               -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
               -DCMAKE_WARN_DEPRECATED=FALSE
               -DQT_ANDROID_ABIS="${{ env.QT_ANDROID_ABIS }}"
               -DQT_ANDROID_BUILD_ALL_ABIS=OFF
-              -DQT_HOST_PATH="${{ env.QT_ROOT_DIR }}/../gcc_64"
+              -DQT_HOST_PATH="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/gcc_64"
               -DQT_ANDROID_SIGN_APK=ON
               -DQT_DEBUG_FIND_PACKAGE=ON
               -DQGC_STABLE_BUILD=ON
