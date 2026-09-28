@@ -21,6 +21,7 @@ import QGroundControl.ScreenTools
 import QGroundControl.MultiVehicleManager
 import QGroundControl.Palette
 import QGroundControl.Controllers
+import QGroundControl.Viewer3D
 
 SettingsPage {
     property var    _settingsManager:                       QGroundControl.settingsManager
@@ -380,9 +381,36 @@ SettingsPage {
     }
 
     SettingsGroupLayout {
+        id:                 viewer3DGroup
         Layout.fillWidth:   true
         heading:            qsTr("3D View")
         visible:            _viewer3DSettings.visible
+
+        property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
+        property string _noneSite:          qsTr("<None>")
+        property string _defaultPathText:   "Please select an OSM file"
+
+        function _selectedSiteIndex() {
+            var name = sitePreloader.siteNameFromPath(_viewer3DOsmFilePath.rawValue)
+            var idx = sitePreloader.availableSites.indexOf(name)
+            return idx < 0 ? 0 : idx + 1
+        }
+
+        function _siteModel() {
+            var list = sitePreloader.availableSites.slice()
+            list.unshift(_noneSite)
+            return list
+        }
+
+        Viewer3DSitePreloader {
+            id: sitePreloader
+            onPreloadFinished: (ok, filePath) => {
+                if (ok) {
+                    _viewer3DOsmFilePath.value = filePath
+                    siteNameField.text = sitePreloader.defaultSiteName()
+                }
+            }
+        }
 
         FactCheckBoxSlider {
             Layout.fillWidth:   true
@@ -391,71 +419,150 @@ SettingsPage {
             visible:            _viewer3DEnabled.visible
         }
 
-        ColumnLayout{
+        QGCLabel {
+            Layout.fillWidth:   true
+            wrapMode:           Text.WordWrap
+            font.pointSize:     ScreenTools.smallFontPointSize
+            text:               qsTr("Preload a site while on Wi-Fi: this downloads building outlines and caches the satellite tiles for the current map type so the 3D View works in the field with no connection. Larger radius = more tiles.")
+        }
+
+        // ---- Site chooser (files in the app's Maps3D folder) ----
+        LabelledComboBox {
+            id:                 siteCombo
+            Layout.fillWidth:   true
+            label:              qsTr("Site")
+            enabled:            _viewer3DEnabled.rawValue && !sitePreloader.busy
+            model:              viewer3DGroup._siteModel()
+            Component.onCompleted: currentIndex = viewer3DGroup._selectedSiteIndex()
+            onActivated: (index) => {
+                if (index <= 0) {
+                    _viewer3DOsmFilePath.value = viewer3DGroup._defaultPathText
+                } else {
+                    _viewer3DOsmFilePath.value = sitePreloader.sitePath(model[index])
+                }
+            }
+            Connections {
+                target: sitePreloader
+                function onAvailableSitesChanged() {
+                    siteCombo.model = viewer3DGroup._siteModel()
+                    siteCombo.currentIndex = viewer3DGroup._selectedSiteIndex()
+                }
+            }
+        }
+
+        RowLayout {
             Layout.fillWidth:   true
             spacing:            ScreenTools.defaultFontPixelWidth
-            enabled:            _viewer3DEnabled.rawValue
-            visible:            _viewer3DOsmFilePath.rawValue
 
-            RowLayout{
+            QGCLabel {
                 Layout.fillWidth:   true
-                spacing:            ScreenTools.defaultFontPixelWidth
+                wrapMode:           Text.WordWrap
+                font.pointSize:     ScreenTools.smallFontPointSize
+                text:               _viewer3DOsmFilePath.rawValue
+                elide:              Text.ElideLeft
+                maximumLineCount:   2
+            }
 
-                QGCLabel {
-                    wrapMode:   Text.WordWrap
-                    visible:    true
-                    text:       qsTr("3D Map File:")
-                }
-
-                QGCTextField {
-                    id:                 osmFileTextField
-                    height:             ScreenTools.defaultFontPixelWidth * 4.5
-                    unitsLabel:         ""
-                    showUnits:          false
-                    visible:            true
-                    Layout.fillWidth:   true
-                    readOnly:           true
-                    text:               _viewer3DOsmFilePath.rawValue
+            QGCButton {
+                text:       qsTr("Delete site")
+                enabled:    siteCombo.currentIndex > 0 && !sitePreloader.busy
+                onClicked: {
+                    var name = siteCombo.currentText
+                    if (sitePreloader.siteNameFromPath(_viewer3DOsmFilePath.rawValue) === name) {
+                        _viewer3DOsmFilePath.value = viewer3DGroup._defaultPathText
+                    }
+                    sitePreloader.deleteSite(name)
                 }
             }
 
-            RowLayout{
-                Layout.alignment:   Qt.AlignRight
-                spacing:            ScreenTools.defaultFontPixelWidth
+            QGCButton {
+                text:       qsTr("Select File...")
+                visible:    !ScreenTools.isMobile
+                enabled:    _viewer3DEnabled.rawValue && !sitePreloader.busy
+                onClicked:  fileDialog.openForLoad()
 
-                QGCButton {
-                    text: qsTr("Clear")
-
-                    onClicked: {
-                        osmFileTextField.text = "Please select an OSM file"
-                        _viewer3DOsmFilePath.value = osmFileTextField.text
-                    }
+                QGCFileDialog {
+                    id:             fileDialog
+                    folder:         sitePreloader.mapsDirectory
+                    nameFilters:    [qsTr("OpenStreetMap files (*.osm)")]
+                    title:          qsTr("Select map file")
+                    onAcceptedForLoad: (file) => { _viewer3DOsmFilePath.value = file }
                 }
+            }
+        }
 
-                QGCButton {
-                    text: qsTr("Select File")
+        // ---- Preload a new site ----
+        RowLayout {
+            Layout.fillWidth:   true
+            spacing:            ScreenTools.defaultFontPixelWidth
+            enabled:            _viewer3DEnabled.rawValue && !sitePreloader.busy
 
-                    onClicked: {
-                        var filename = _viewer3DOsmFilePath.rawValue;
-                        const found = filename.match(/(.*)[\/\\]/);
-                        if(found){
-                            filename = found[1]||''; // extracting the directory from the file path
-                            fileDialog.folder = (filename[0] === "/")?(filename.slice(1)):(filename);
-                        }
-                        fileDialog.openForLoad()
-                    }
+            QGCLabel { text: qsTr("New site name") }
+            QGCTextField {
+                id:                 siteNameField
+                Layout.fillWidth:   true
+                text:               sitePreloader.defaultSiteName()
+            }
+            QGCLabel { text: qsTr("Radius") }
+            QGCTextField {
+                id:                 radiusField
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 10
+                text:               "1500"
+                unitsLabel:         "m"
+                showUnits:          true
+                numericValuesOnly:  true
+            }
+        }
 
-                    QGCFileDialog {
-                        id:             fileDialog
-                        nameFilters:    [qsTr("OpenStreetMap files (*.osm)")]
-                        title:          qsTr("Select map file")
+        RowLayout {
+            Layout.fillWidth:   true
+            spacing:            ScreenTools.defaultFontPixelWidth
 
-                        onAcceptedForLoad: (file) => {
-                                               osmFileTextField.text = file
-                                               _viewer3DOsmFilePath.value = osmFileTextField.text
-                        }
-                    }
+            QGCButton {
+                text:       qsTr("Preload around map center")
+                enabled:    _viewer3DEnabled.rawValue && !sitePreloader.busy
+                onClicked:  sitePreloader.preload(siteNameField.text, QGroundControl.flightMapPosition, parseFloat(radiusField.text))
+            }
+
+            QGCButton {
+                text:       qsTr("Preload around vehicle")
+                enabled:    _viewer3DEnabled.rawValue && !sitePreloader.busy && viewer3DGroup._activeVehicle && viewer3DGroup._activeVehicle.coordinate.isValid
+                onClicked:  sitePreloader.preload(siteNameField.text, viewer3DGroup._activeVehicle.coordinate, parseFloat(radiusField.text))
+            }
+
+            QGCButton {
+                text:       qsTr("Cancel")
+                visible:    sitePreloader.busy
+                onClicked:  sitePreloader.cancel()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth:   true
+            spacing:            ScreenTools.defaultFontPixelWidth
+            visible:            sitePreloader.status.length > 0
+
+            Rectangle {
+                Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 12
+                Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 0.6
+                visible:                sitePreloader.busy
+                color:                  qgcPal.windowShade
+                border.color:           qgcPal.text
+                border.width:           1
+                Rectangle {
+                    anchors.left:   parent.left
+                    anchors.top:    parent.top
+                    anchors.bottom: parent.bottom
+                    width:          parent.width * sitePreloader.progress / 100
+                    color:          qgcPal.colorGreen
                 }
+            }
+
+            QGCLabel {
+                Layout.fillWidth:   true
+                wrapMode:           Text.WordWrap
+                font.pointSize:     ScreenTools.smallFontPointSize
+                text:               sitePreloader.status
             }
         }
 

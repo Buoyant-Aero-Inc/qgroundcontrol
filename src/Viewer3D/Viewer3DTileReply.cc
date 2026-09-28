@@ -12,6 +12,9 @@
 #include <MapProvider.h>
 #include <QGCMapUrlEngine.h>
 #include <QGeoTileFetcherQGC.h>
+#include <QGeoFileTileCacheQGC.h>
+#include <QGCMapEngine.h>
+#include <QGCCacheTile.h>
 
 #include <QtCore/QFile>
 #include <QtCore/QTimer>
@@ -37,7 +40,6 @@ Viewer3DTileReply::Viewer3DTileReply(int zoomLevel, int tileX, int tileY, int ma
     _timeoutTimer = new QTimer(this);
     _networkManager = new QNetworkAccessManager(this);
     _networkManager->setTransferTimeout(9000);
-    // connect(_networkManager, &QNetworkAccessManager::finished, this, &Viewer3DTileReply::requestFinished);
 
     _tile.x = tileX;
     _tile.y = tileY;
@@ -57,7 +59,50 @@ Viewer3DTileReply::~Viewer3DTileReply()
     delete _timeoutTimer;
 }
 
+bool Viewer3DTileReply::_isBingNoTile(const QByteArray &data) const
+{
+    const SharedMapProvider mapProvider = UrlFactory::getMapProviderFromQtMapId(_tile.mapId);
+    return mapProvider && mapProvider->isBingProvider() && data.size() && data == _bingNoTileImage;
+}
+
 void Viewer3DTileReply::prepareDownload()
+{
+    if (!_cacheChecked) {
+        // First attempt: ask the QGC tile cache (same DB the 2D map and Offline Maps use).
+        _cacheChecked = true;
+        const QString providerType = UrlFactory::getProviderTypeFromQtMapId(_mapId);
+        QGCFetchTileTask* const task = QGeoFileTileCacheQGC::createFetchTileTask(providerType, _tile.x, _tile.y, _tile.zoomLevel);
+        connect(task, &QGCFetchTileTask::tileFetched, this, &Viewer3DTileReply::_cacheTileFetched);
+        connect(task, &QGCMapTask::error, this, &Viewer3DTileReply::_cacheTileError);
+        getQGCMapEngine()->addTask(task);
+        return;
+    }
+    startNetworkDownload();
+}
+
+void Viewer3DTileReply::_cacheTileFetched(QGCCacheTile *tile)
+{
+    if (tile && !tile->img().isEmpty() && !_isBingNoTile(tile->img())) {
+        _tile.data = tile->img();
+        delete tile;
+        _timeoutTimer->stop();
+        disconnect(_timeoutTimer, &QTimer::timeout, this, &Viewer3DTileReply::timeoutTimerEvent);
+        emit tileDone(_tile);
+        return;
+    }
+    delete tile;
+    startNetworkDownload();
+}
+
+void Viewer3DTileReply::_cacheTileError(QGCMapTask::TaskType type, const QString &errorString)
+{
+    Q_UNUSED(type);
+    Q_UNUSED(errorString);
+    // Not in cache: go to the network.
+    startNetworkDownload();
+}
+
+void Viewer3DTileReply::startNetworkDownload()
 {
     const QNetworkRequest request = QGeoTileFetcherQGC::getNetworkRequest(_mapId, _tile.x, _tile.y, _tile.zoomLevel);
     _reply = _networkManager->get(request);
@@ -67,23 +112,36 @@ void Viewer3DTileReply::prepareDownload()
 
 void Viewer3DTileReply::requestFinished()
 {
+    const int statusCode = _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     _tile.data = _reply->readAll();
     const SharedMapProvider mapProvider = UrlFactory::getMapProviderFromQtMapId(_tile.mapId);
-    // disconnect(_networkManager, &QNetworkAccessManager::finished, this, &Viewer3DTileReply::requestFinished);
-    _timeoutTimer->stop();
     disconnect(_reply, &QNetworkReply::finished, this, &Viewer3DTileReply::requestFinished);
     disconnect(_reply, &QNetworkReply::errorOccurred, this, &Viewer3DTileReply::requestError);
+
+    if (statusCode < 200 || statusCode >= 300) {
+        // HTTP error page is not a tile. Leave data empty so the timeout timer retries.
+        _tile.data.clear();
+        emit tileError(_tile);
+        return;
+    }
+
+    _timeoutTimer->stop();
     disconnect(_timeoutTimer, &QTimer::timeout, this, &Viewer3DTileReply::timeoutTimerEvent);
 
-    if(mapProvider && mapProvider->isBingProvider() && _tile.data.size() && _tile.data == _bingNoTileImage){
+    if (_isBingNoTile(_tile.data)) {
         // Bing doesn't return an error if you request a tile above supported zoom level
         // It instead returns an image of a missing tile graphic. We need to detect that
         // and error out so 3D View will deal with zooming correctly even if it doesn't have the tile.
-        // This allows us to zoom up to level 23 even though the tiles don't actually exist
-        // so we clear the data to imdicate it is not a valid tile
         _tile.data.clear();
         emit tileEmpty(_tile);
         return;
+    }
+
+    if (mapProvider && !_tile.data.isEmpty()) {
+        const QString format = mapProvider->getImageFormat(_tile.data);
+        if (!format.isEmpty()) {
+            QGeoFileTileCacheQGC::cacheTile(mapProvider->getMapName(), _tile.x, _tile.y, _tile.zoomLevel, _tile.data, format);
+        }
     }
     emit tileDone(_tile);
 }
@@ -91,19 +149,19 @@ void Viewer3DTileReply::requestFinished()
 void Viewer3DTileReply::requestError()
 {
     emit tileError(_tile);
-    disconnect(_reply, &QNetworkReply::finished, this, &Viewer3DTileReply::requestFinished);
-    disconnect(_reply, &QNetworkReply::errorOccurred, this, &Viewer3DTileReply::requestError);
+    if (_reply) {
+        disconnect(_reply, &QNetworkReply::finished, this, &Viewer3DTileReply::requestFinished);
+        disconnect(_reply, &QNetworkReply::errorOccurred, this, &Viewer3DTileReply::requestError);
+    }
 }
 
 void Viewer3DTileReply::timeoutTimerEvent()
 {
     if(_timeoutCounter > 5){
-        // _timeoutCounter = 0;
-        // _networkManager->setTransferTimeout(14000);
-        // _timeoutTimer->stop();
-        // _timeoutTimer->start(15000);
-        disconnect(_reply, &QNetworkReply::finished, this, &Viewer3DTileReply::requestFinished);
-        disconnect(_reply, &QNetworkReply::errorOccurred, this, &Viewer3DTileReply::requestError);
+        if (_reply) {
+            disconnect(_reply, &QNetworkReply::finished, this, &Viewer3DTileReply::requestFinished);
+            disconnect(_reply, &QNetworkReply::errorOccurred, this, &Viewer3DTileReply::requestError);
+        }
         disconnect(_timeoutTimer, &QTimer::timeout, this, &Viewer3DTileReply::timeoutTimerEvent);
         emit tileGiveUp(_tile);
         _timeoutTimer->stop();

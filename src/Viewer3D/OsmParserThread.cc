@@ -56,7 +56,11 @@ void OsmParserThread::parseOsmFile(QString filePath)
     QDomDocument xml_content;
 // Load xml file as raw data
 #ifdef __unix__
-    filePath = QString("/") + filePath;
+    // Stored paths may have had their leading slash stripped (desktop file dialog quirk).
+    // Only restore it when it is actually missing so absolute Android paths stay intact.
+    if (!filePath.startsWith(QStringLiteral("/")) && !filePath.startsWith(QStringLiteral(":"))) {
+        filePath = QString("/") + filePath;
+    }
 #endif
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly )) {

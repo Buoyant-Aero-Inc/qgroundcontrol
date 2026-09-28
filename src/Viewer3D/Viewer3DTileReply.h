@@ -10,12 +10,18 @@
 #pragma once
 
 #include <QtCore/QObject>
+#include "QGCMapTasks.h"
 
 class QNetworkReply;
 class QNetworkAccessManager;
 class QTimer;
+class QGCCacheTile;
 
 ///     @author Omid Esrafilian <esrafilian.omid@gmail.com>
+///
+///     Custom build: tiles are looked up in the QGC map tile cache first and
+///     every tile fetched from the network is written back into that cache, so
+///     the 3D view works offline once a site has been preloaded.
 
 class Viewer3DTileReply : public QObject
 {
@@ -35,17 +41,22 @@ public:
 private:
 
     QNetworkAccessManager* _networkManager;
-    QNetworkReply* _reply;
+    QNetworkReply* _reply = nullptr;
     tileInfo_t _tile;
     QTimer* _timeoutTimer;
     int _mapId;
     int _timeoutCounter;
+    bool _cacheChecked = false;
     static QByteArray       _bingNoTileImage;
 
     void prepareDownload();
+    void startNetworkDownload();
     void requestFinished();
     void requestError();
     void timeoutTimerEvent();
+    void _cacheTileFetched(QGCCacheTile *tile);
+    void _cacheTileError(QGCMapTask::TaskType type, const QString &errorString);
+    bool _isBingNoTile(const QByteArray &data) const;
 
 signals:
     void tileDone(tileInfo_t);

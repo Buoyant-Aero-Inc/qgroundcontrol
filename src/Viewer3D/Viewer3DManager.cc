@@ -14,6 +14,7 @@
 #include "Viewer3DTerrainTexture.h"
 #include "CityMapGeometry.h"
 #include "Viewer3DQmlVariableTypes.h"
+#include "Viewer3DSitePreloader.h"
 
 #include <QtQml/qqml.h>
 
@@ -40,4 +41,5 @@ void Viewer3DManager::registerQmlTypes()
     qmlRegisterType<Viewer3DManager>              ("QGroundControl.Viewer3D", 1, 0, "Viewer3DManager");
     qmlRegisterType<Viewer3DTerrainGeometry>      ("QGroundControl.Viewer3D", 1, 0, "Viewer3DTerrainGeometry");
     qmlRegisterType<Viewer3DTerrainTexture>       ("QGroundControl.Viewer3D", 1, 0, "Viewer3DTerrainTexture");
+    qmlRegisterType<Viewer3DSitePreloader>        ("QGroundControl.Viewer3D", 1, 0, "Viewer3DSitePreloader");
 }

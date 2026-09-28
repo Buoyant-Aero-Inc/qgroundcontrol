@@ -243,6 +243,7 @@ void AppSettings::_checkSavePathDirectories(void)
         savePathDir.mkdir(photoDirectory);
         savePathDir.mkdir(crashDirectory);
         savePathDir.mkdir(mavlinkActionsDirectory);
+        savePathDir.mkdir(viewer3DMapsDirectory);
     }
 }
 
@@ -327,6 +328,16 @@ QString AppSettings::mavlinkActionsSavePath(void)
     if (!path.isEmpty() && QDir(path).exists()) {
         QDir dir(path);
         return dir.filePath(mavlinkActionsDirectory);
+    }
+    return QString();
+}
+
+QString AppSettings::viewer3DMapsSavePath(void)
+{
+    QString path = savePath()->rawValue().toString();
+    if (!path.isEmpty() && QDir(path).exists()) {
+        QDir dir(path);
+        return dir.filePath(viewer3DMapsDirectory);
     }
     return QString();
 }

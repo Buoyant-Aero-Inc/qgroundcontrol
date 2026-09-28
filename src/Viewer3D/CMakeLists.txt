@@ -16,6 +16,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         Viewer3DQmlBackend.cc
         Viewer3DQmlBackend.h
         Viewer3DQmlVariableTypes.h
+        Viewer3DSitePreloader.cc
+        Viewer3DSitePreloader.h
         Viewer3DTerrainGeometry.cc
         Viewer3DTerrainGeometry.h
         Viewer3DTerrainTexture.cc
