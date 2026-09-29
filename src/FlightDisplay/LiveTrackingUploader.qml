@@ -64,6 +64,7 @@ Item {
         var now = Date.now()
         var heading = vehicle.heading.rawValue
         var home = vehicle.homePosition
+        var batt = (vehicle.batteries && vehicle.batteries.count > 0) ? vehicle.batteries.get(0) : null
         var payload = {
             "lat":     vehicle.coordinate.latitude,
             "lon":     vehicle.coordinate.longitude,
@@ -73,11 +74,35 @@ Item {
             "homeLat": home.isValid ? home.latitude : null,
             "homeLon": home.isValid ? home.longitude : null,
             "homeAlt": home.isValid ? home.altitude : null,
-            "ts":      now
+            "ts":      now,
+            // Extended telemetry for the ops 3D app (all optional, null if unavailable)
+            "altAmsl":    _num(vehicle.altitudeAMSL),
+            "climb":      _num(vehicle.climbRate),
+            "airspeed":   _num(vehicle.airSpeed),
+            "roll":       _num(vehicle.roll),
+            "pitch":      _num(vehicle.pitch),
+            "throttle":   _num(vehicle.throttlePct),
+            "battPct":    batt ? _num(batt.percentRemaining) : null,
+            "battV":      batt ? _num(batt.voltage) : null,
+            "battA":      batt ? _num(batt.current) : null,
+            "sats":       vehicle.gps ? _num(vehicle.gps.count) : null,
+            "hdop":       vehicle.gps ? _num(vehicle.gps.hdop) : null,
+            "mode":       vehicle.flightMode,
+            "armed":      vehicle.armed,
+            "flightTime": _num(vehicle.flightTime),
+            "flightDist": _num(vehicle.flightDistance),
+            "distHome":   _num(vehicle.distanceToHome)
         }
 
         _put(base + "/current.json", payload, true)
         _put(base + "/trail/" + now + ".json", { "lat": payload.lat, "lon": payload.lon, "alt": payload.alt, "heading": payload.heading, "ts": now }, false)
+    }
+
+    // Fact -> number or null (facts can be missing or NaN before first telemetry)
+    function _num(fact) {
+        if (!fact) return null
+        var v = fact.rawValue
+        return (v === undefined || v === null || isNaN(v)) ? null : Number(v)
     }
 
     function _put(url, obj, trackStatus) {
