@@ -316,6 +316,8 @@ const QVariantList &QGCCorePlugin::toolBarIndicators()
     static const QVariantList toolBarIndicatorList = QVariantList(
         {
             QVariant::fromValue(QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/Toolbar/RTKGPSIndicator.qml"))),
+            // Custom build: surface wind + max gust from the best nearby weather station
+            QVariant::fromValue(QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/Toolbar/WindIndicator.qml"))),
         }
     );
 

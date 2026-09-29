@@ -139,6 +139,64 @@
     "max":              30,
     "decimalPlaces":    0,
     "default":          3
+},
+{
+    "name":             "windEnabled",
+    "shortDesc":        "Show real-time surface wind (direction, speed, max gust last hour) from the best nearby weather station in the toolbar.",
+    "type":             "bool",
+    "default":          true
+},
+{
+    "name":             "windStationRadius",
+    "shortDesc":        "Search radius for weather stations around the vehicle / map centre.",
+    "type":             "double",
+    "units":            "mi",
+    "min":              1,
+    "max":              30,
+    "decimalPlaces":    0,
+    "default":          3
+},
+{
+    "name":             "windRefreshMinutes",
+    "shortDesc":        "Minutes between wind refreshes.",
+    "type":             "double",
+    "units":            "min",
+    "min":              1,
+    "max":              30,
+    "decimalPlaces":    0,
+    "default":          5
+},
+{
+    "name":             "windAltitudeFt",
+    "shortDesc":        "Altitude (ft AGL) for the model wind-aloft estimate.",
+    "type":             "double",
+    "units":            "ft",
+    "min":              50,
+    "max":              1000,
+    "decimalPlaces":    0,
+    "default":          300
+},
+{
+    "name":             "windGustWarnKt",
+    "shortDesc":        "Max gust (kt) at which the wind indicator turns red.",
+    "type":             "double",
+    "units":            "kt",
+    "min":              5,
+    "max":              60,
+    "decimalPlaces":    0,
+    "default":          20
+},
+{
+    "name":             "windSynopticToken",
+    "shortDesc":        "Optional Synoptic Data API token for many more stations (CWOP, RAWS, mesonets). Blank = Iowa Mesonet public feed.",
+    "type":             "string",
+    "default":          ""
+},
+{
+    "name":             "windStateCode",
+    "shortDesc":        "US state code for the public station feed (AUTO = resolve from position).",
+    "type":             "string",
+    "default":          "AUTO"
 }
 ]
 }

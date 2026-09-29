@@ -39,4 +39,11 @@ public:
     DEFINE_SETTINGFACT(liveTrackingEnabled)
     DEFINE_SETTINGFACT(liveTrackingServerUrl)
     DEFINE_SETTINGFACT(liveTrackingInterval)
+    DEFINE_SETTINGFACT(windEnabled)
+    DEFINE_SETTINGFACT(windStationRadius)
+    DEFINE_SETTINGFACT(windRefreshMinutes)
+    DEFINE_SETTINGFACT(windAltitudeFt)
+    DEFINE_SETTINGFACT(windGustWarnKt)
+    DEFINE_SETTINGFACT(windSynopticToken)
+    DEFINE_SETTINGFACT(windStateCode)
 };

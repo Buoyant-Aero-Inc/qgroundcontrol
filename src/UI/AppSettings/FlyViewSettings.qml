@@ -257,6 +257,23 @@ SettingsPage {
 
     SettingsGroupLayout {
         Layout.fillWidth:   true
+        heading:            qsTr("Wind (Toolbar Indicator)")
+
+        FactCheckBoxSlider {
+            Layout.fillWidth:   true
+            text:               qsTr("Show surface wind + max gust (last hour) from nearest reliable station")
+            fact:               _flyViewSettings.windEnabled
+        }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("Station search radius (mi)"); fact: _flyViewSettings.windStationRadius }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("Refresh interval (min)"); fact: _flyViewSettings.windRefreshMinutes }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("Wind-aloft altitude (ft AGL)"); fact: _flyViewSettings.windAltitudeFt }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("Gust warning threshold (kt)"); fact: _flyViewSettings.windGustWarnKt }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("Synoptic Data token (optional)"); fact: _flyViewSettings.windSynopticToken; textFieldPreferredWidth: ScreenTools.defaultFontPixelWidth * 40 }
+        LabelledFactTextField { Layout.fillWidth: true; label: qsTr("State code for public feed (AUTO)"); fact: _flyViewSettings.windStateCode }
+    }
+
+    SettingsGroupLayout {
+        Layout.fillWidth:   true
         heading:            qsTr("Guided Commands")
         visible:            _guidedMinimumAltitude.visible || _guidedMaximumAltitude.visible ||
                             _maxGoToLocationDistance.visible || _forwardFlightGoToLocationLoiterRad.visible ||
